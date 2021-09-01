@@ -11,8 +11,5 @@
 	        "src": "/(?<hash>[^/]*)",
 	        "dest": "/index.go"
 	    }
-    ],
-    "env": {
-	    "FLAG": "@flag"
-    }
+    ]
 }
