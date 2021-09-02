@@ -1,15 +1,14 @@
-package handler
+package main
 
 import (
-	"crypto/md5"
+	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
-	"strconv"
-	"time"
-	"io/ioutil"
 	"os"
+	"time"
 )
 
 type thing struct {
@@ -17,6 +16,10 @@ type thing struct {
 	pass string
 	hash string
 }
+
+const PIN_LENGTH = 8
+const PIN_PADDING = "%08d"
+const MAX_PIN = 100000000
 
 var things = make([]thing, 0)
 
@@ -32,12 +35,12 @@ func filterOutOldThings(t time.Time) {
 }
 
 func addNewThing(t time.Time) string {
-	pass := strconv.Itoa(1000000 + rand.Intn(9000000))
-	hash := md5.Sum([]byte(pass))
+	pass := fmt.Sprintf(PIN_PADDING, rand.Intn(MAX_PIN))
+	hash := sha256.Sum256([]byte(pass))
 	hexDigest := hex.EncodeToString(hash[:])
 	things = append(things, thing{t, pass, hexDigest})
 	return hexDigest
-}	
+}
 
 func Handler(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
