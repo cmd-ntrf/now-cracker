@@ -9,52 +9,40 @@ import (
 	"net/http"
 	"os"
 	"time"
-)
 
-type tuple struct {
-	time time.Time
-	pass string
-}
+	"github.com/patrickmn/go-cache"
+)
 
 const PIN_LENGTH = 8
 const PIN_PADDING = "%08d"
 const MAX_PIN = 100000000
+const TIME_LIMIT = 2
 
-var tuples = make(map[string]tuple)
+var FLAG = os.Getenv("FLAG")
 
-func filterOutOldTuples(t time.Time) {
-	new_tuples := make(map[string]tuple)
-	for key, tuple := range tuples {
-		if tuple.time.Add(time.Second * 2).After(t) {
-			new_tuples[key] = tuple
-		}
-	}
-	tuples = new_tuples
-	fmt.Printf("%v\n", tuples)
-}
+var pin_cache = cache.New(TIME_LIMIT*time.Second, 2*TIME_LIMIT*time.Second)
 
-func addNewThing(t time.Time) string {
+func generatePIN() string {
 	pass := fmt.Sprintf(PIN_PADDING, rand.Intn(MAX_PIN))
 	hash := sha256.Sum256([]byte(pass))
 	hexDigest := hex.EncodeToString(hash[:])
-	tuples[hexDigest] = tuple{t, pass}
+	pin_cache.Set(hexDigest, pass, cache.DefaultExpiration)
+	fmt.Println(pass, hexDigest)
 	return hexDigest
 }
 
 func Handler(w http.ResponseWriter, r *http.Request) {
-	now := time.Now()
-	filterOutOldTuples(now)
 	switch r.Method {
 	case "POST":
 		givenHash := r.URL.Path[1:]
 		body, _ := ioutil.ReadAll(r.Body)
 		givenPass := string(body)
-		tuple, ok := tuples[givenHash]
-		if ok && tuple.pass == givenPass {
-			fmt.Fprintln(w, os.Getenv("FLAG"))
+		pin, found := pin_cache.Get(givenHash)
+		if found && pin.(string) == givenPass {
+			fmt.Fprintln(w, FLAG)
 		}
 	case "GET":
-		hash := addNewThing(now)
+		hash := generatePIN()
 		fmt.Fprintln(w, hash)
 	}
 }
